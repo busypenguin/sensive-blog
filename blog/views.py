@@ -52,7 +52,7 @@ def index(request):
     most_popular_posts_ids = [post.id for post in most_popular_posts]
     posts_with_comments = Post.objects.fetch_with_comments_count(most_popular_posts_ids)
     ids_and_comments = posts_with_comments.values_list('id', 'comments_count')
-    count_for_id = dict(ids_and_comments) 
+    count_for_id = dict(ids_and_comments)
     for post in most_popular_posts:
         post.comments_count = count_for_id[post.id]
 

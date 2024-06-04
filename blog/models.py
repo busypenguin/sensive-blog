@@ -11,7 +11,7 @@ class PostQuerySet(models.QuerySet):
         return posts_at_year
 
     def popular(self):
-        popular_posts = self.annotate(likes_count=Count('likes')).order_by('-likes_count')
+        popular_posts = self.annotate(likes_count=Count('likes')).order_by('-likes_count').prefetch_related('tags')
         return popular_posts
 
     def fetch_with_comments_count(self, posts_ids):
