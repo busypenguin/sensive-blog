@@ -1,7 +1,8 @@
 from django.db import models
 from django.urls import reverse
 from django.contrib.auth.models import User
-from django.db.models import Count
+from django.db.models import Count, Prefetch
+
 
 
 class PostQuerySet(models.QuerySet):
@@ -18,6 +19,13 @@ class PostQuerySet(models.QuerySet):
         posts_with_comments_count = self.filter(id__in=posts_ids).annotate(comments_count=Count('comments'))
         return posts_with_comments_count
 
+
+    def fresh(self):
+        fresh_posts = self.order_by('published_at').annotate(
+            comments_count=Count('comments', distinct=True)
+        ).prefetch_related('comments').prefetch_related(
+            Prefetch('tags', queryset=Tag.objects.order_by('title')))
+        return fresh_posts
 
 class TagQuerySet(models.QuerySet):
 
