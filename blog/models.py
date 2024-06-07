@@ -14,9 +14,13 @@ class PostQuerySet(models.QuerySet):
         popular_posts = self.annotate(likes_count=Count('likes')).order_by('-likes_count').prefetch_related('tags')
         return popular_posts
 
-    def fetch_with_comments_count(self, posts_ids):
-        posts_with_comments_count = self.filter(id__in=posts_ids).annotate(comments_count=Count('comments'))
-        return posts_with_comments_count
+    def fetch_with_comments_count(self, posts_ids, most_posts):
+        posts_with_comments = self.filter(id__in=posts_ids).annotate(comments_count=Count('comments'))
+        ids_and_comments = posts_with_comments.values_list('id', 'comments_count')
+        count_for_id = dict(ids_and_comments)
+        for post in most_posts:
+            post.comments_count = count_for_id[post.id]
+        return most_posts
 
     def fresh(self):
         fresh_posts = self.order_by('published_at').annotate(
@@ -40,8 +44,6 @@ class Post(models.Model):
     image = models.ImageField('Картинка')
     published_at = models.DateTimeField('Дата и время публикации')
 
-    objects = PostQuerySet.as_manager()
-
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -56,6 +58,8 @@ class Post(models.Model):
         'Tag',
         related_name='posts',
         verbose_name='Теги')
+
+    objects = PostQuerySet.as_manager()
 
     def __str__(self):
         return self.title

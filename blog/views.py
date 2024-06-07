@@ -1,15 +1,6 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from blog.models import Comment, Post, Tag
 from django.db.models import Count, Prefetch
-
-
-def get_related_posts_count(tag):
-    return tag.posts.count()
-
-
-def get_likes_count(post):
-    return post.likes_count
-
 
 def serialize_post(post):
     return {
@@ -50,36 +41,28 @@ def index(request):
 
     most_popular_posts = Post.objects.popular().select_related('author')[:5]
     most_popular_posts_ids = [post.id for post in most_popular_posts]
-    posts_with_comments = Post.objects.fetch_with_comments_count(most_popular_posts_ids)
-    ids_and_comments = posts_with_comments.values_list('id', 'comments_count')
-    count_for_id = dict(ids_and_comments)
-    for post in most_popular_posts:
-        post.comments_count = count_for_id[post.id]
+    popular_posts_with_comments = Post.objects.fetch_with_comments_count(most_popular_posts_ids, most_popular_posts)
 
     fresh_posts = Post.objects.fresh().select_related('author')
     most_fresh_posts = list(fresh_posts)[-5:]
     most_fresh_posts_ids = [post.id for post in most_fresh_posts]
-    fresh_posts_with_comments = Post.objects.fetch_with_comments_count(most_fresh_posts_ids)
-    ids_and_comments = fresh_posts_with_comments.values_list('id', 'comments_count')
-    count_for_id = dict(ids_and_comments)
-    for post in most_fresh_posts:
-        post.comments_count = count_for_id[post.id]
+    fresh_posts_with_comments = Post.objects.fetch_with_comments_count(most_fresh_posts_ids, most_fresh_posts)
 
     most_popular_tags = Tag.objects.popular()[:5]
 
     context = {
         'most_popular_posts': [
-            serialize_post_optimized(post) for post in most_popular_posts
+            serialize_post_optimized(post) for post in popular_posts_with_comments
         ],
-        'page_posts': [serialize_post_optimized(post) for post in most_fresh_posts],
+        'page_posts': [serialize_post_optimized(post) for post in fresh_posts_with_comments],
         'popular_tags': [serialize_tag(tag) for tag in most_popular_tags],
     }
     return render(request, 'index.html', context)
 
 
 def post_detail(request, slug):
-    post = Post.objects.get(slug=slug)
-    comments = Comment.objects.filter(post=post).select_related('author')
+    post = get_object_or_404(Post, slug=slug)
+    comments = post.comments.all().select_related('author')
     serialized_comments = []
     for comment in comments:
         serialized_comments.append({
@@ -97,7 +80,7 @@ def post_detail(request, slug):
         'text': post.text,
         'author': post.author.username,
         'comments': serialized_comments,
-        'likes_amount': len(likes),
+        'likes_amount': likes.count(),
         'image_url': post.image.url if post.image else None,
         'published_at': post.published_at,
         'slug': post.slug,
@@ -108,23 +91,20 @@ def post_detail(request, slug):
 
     most_popular_posts = Post.objects.popular().select_related('author')[:5]
     most_popular_posts_ids = [post.id for post in most_popular_posts]
-    posts_with_comments = Post.objects.fetch_with_comments_count(most_popular_posts_ids)
-    ids_and_comments = posts_with_comments.values_list('id', 'comments_count')
-    count_for_id = dict(ids_and_comments)
-    for post in most_popular_posts:
-        post.comments_count = count_for_id[post.id]
+    popular_posts_with_comments = Post.objects.fetch_with_comments_count(most_popular_posts_ids, most_popular_posts)
+
     context = {
         'post': serialized_post,
         'popular_tags': [serialize_tag(tag) for tag in most_popular_tags],
         'most_popular_posts': [
-            serialize_post_optimized(post) for post in most_popular_posts
+            serialize_post_optimized(post) for post in popular_posts_with_comments
         ],
     }
     return render(request, 'post-details.html', context)
 
 
 def tag_filter(request, tag_title):
-    tag = Tag.objects.get(title=tag_title)
+    tag = get_object_or_404(Tag, title=tag_title)
 
     most_popular_tags = Tag.objects.popular()[:5]
 
