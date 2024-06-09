@@ -14,7 +14,8 @@ class PostQuerySet(models.QuerySet):
         popular_posts = self.annotate(likes_count=Count('likes')).order_by('-likes_count').prefetch_related('tags')
         return popular_posts
 
-    def fetch_with_comments_count(self, posts_ids, most_posts):
+    def fetch_with_comments_count(self, most_posts):
+        posts_ids = [post.id for post in most_posts]
         posts_with_comments = self.filter(id__in=posts_ids).annotate(comments_count=Count('comments'))
         ids_and_comments = posts_with_comments.values_list('id', 'comments_count')
         count_for_id = dict(ids_and_comments)
